@@ -1,0 +1,15 @@
+name: ads
+channels:
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.9
+  - pip
+  - pytorch
+  - torchvision
+  - cudatoolkit=11.3
+  - pip:
+      - black
+      - opencv-python
+      - nvidia-pyindex
+      - nvidia-dali-cuda110
