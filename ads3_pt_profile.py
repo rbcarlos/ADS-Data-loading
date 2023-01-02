@@ -47,6 +47,7 @@ def train_model(
     optimizer,
     scheduler,
     epochs,
+    trace_file
 ):
     dataset_sizes = {
         "train": len(loader_train.dataset),
@@ -132,12 +133,12 @@ def train_model(
         )
         prof.step()
     prof.stop()
-    prof.export_chrome_trace("trace.json")
+    prof.export_chrome_trace(trace_file)
 
     return model
 
 
-def run_experiment(loader_train, loader_valid, epochs=3):
+def run_experiment(loader_train, loader_valid, log_file, trace_file, epochs=3,):
     if not torch.cuda.is_available():
         raise Exception("CUDA not available to Torch!")
 
@@ -171,6 +172,7 @@ def run_experiment(loader_train, loader_valid, epochs=3):
         criterion,
         optimizer,
         my_scheduler,
-        epochs=epochs,
+        epochs,
+        trace_file
     )
     print("Training time: {:10f} minutes".format((time.time() - start_time) / 60))

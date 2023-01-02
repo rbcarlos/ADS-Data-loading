@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     loader_train = D.DataLoader(
         train,
-        batch_size=80,
+        batch_size=20,
         shuffle=True,
         num_workers=1,
         pin_memory=True,
@@ -68,13 +68,16 @@ if __name__ == "__main__":
     )
     loader_valid = D.DataLoader(
         valid,
-        batch_size=80,
+        batch_size=20,
         shuffle=True,
         num_workers=1,
         pin_memory=True,
         prefetch_factor=2,
     )
 
+    log_file = "out/5py.csv"
+    trace_file = "out/trace5py.json"
+
     ads3.run_experiment(
-        loader_train, loader_valid
+        loader_train, loader_valid, log_file, trace_file
     )  # For profiling feel free to lower epoch count via epoch=X

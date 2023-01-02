@@ -47,6 +47,7 @@ def train_model(
     optimizer,
     scheduler,
     epochs,
+    log_file
 ):
     dataset_sizes = {
         "train": len(loader_train.dataset),
@@ -55,6 +56,10 @@ def train_model(
     print(
         f"Training on {len(loader_train.dataset)} samples. Validating on {len(loader_valid.dataset)} samples"
     )
+
+    log_writter = open(log_file, "w")
+    log_writter.write("epoch,train_epoch_acc,valid_epoch_acc,train_time,throughput \n")
+    print("Created log file!")
 
     for epoch in range(epochs):
         epoc_time = time.time()
@@ -119,10 +124,15 @@ def train_model(
             )
         )
 
+        # length comes from dataset param of loader
+        log_writter.write(f"{epoch},{train_epoch_acc},{valid_epoch_acc},{train_time},{len(loader_train.dataset)/train_time}\n")
+
+    log_writter.close()
+
     return model
 
 
-def run_experiment(loader_train, loader_valid, epochs=10):
+def run_experiment(loader_train, loader_valid, log_file, trace_file, epochs=10):
     if not torch.cuda.is_available():
         raise Exception("CUDA not available to Torch!")
 
@@ -156,6 +166,7 @@ def run_experiment(loader_train, loader_valid, epochs=10):
         criterion,
         optimizer,
         my_scheduler,
-        epochs=epochs,
+        epochs,
+        log_file
     )
     print("Training time: {:10f} minutes".format((time.time() - start_time) / 60))
