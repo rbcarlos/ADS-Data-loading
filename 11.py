@@ -2,6 +2,10 @@ import ads3 as ads3
 import torch
 import torchvision.transforms as transforms
 
+import nvidia.dali.plugin.pytorch as dalitorch
+from nvidia.dali.plugin.pytorch import DALIGenericIterator, LastBatchPolicy
+from nvidia.dali import pipeline_def, fn, types
+
 from pathlib import Path
 from PIL import Image
 from torch.utils import data as D
@@ -14,71 +18,134 @@ root = Path("data")
 file_train = root / "train.txt"
 folder_images = root / "image"
 
+# based on https://docs.nvidia.com/deeplearning/dali/user-guide/docs/examples/general/expressions/expr_conditional_and_masking.html
+def mux(condition, true_case, false_case):
+    neg_condition = condition ^ True
+    return condition * true_case + neg_condition * false_case
 
-class CarDataset(D.Dataset):
-    def __init__(self, labels: list):
-        self.filenames = []
-        self.labels = labels
+@pipeline_def
+def train_pipeline():
+    inputs, labels = fn.readers.file(
+            file_list="data/train_final.txt",
+            random_shuffle=True,
+            prefetch_queue_depth=2,
+            name="Reader",
+        )
+    
+    images = fn.decoders.image(inputs, device = "cpu")
 
-        """Read the dataset index file"""
-        with open(file_train, newline="\n") as trainfile:
-            for line in trainfile:
-                self.filenames.append(folder_images / line.strip())
+    images = fn.resize(images, resize_shorter=INPUT_SIZE)
+    images = fn.crop(images, crop=(INPUT_SIZE, INPUT_SIZE))
 
-        """Initialise the data pipeline"""
-        self.transform = transforms.Compose(
-            [
-                transforms.Resize(INPUT_SIZE),
-                transforms.CenterCrop(INPUT_SIZE),
-                transforms.ToTensor(),
-            ]
+    flip_coin = fn.random.coin_flip()
+    images = fn.flip(images, horizontal = flip_coin, device = "cpu")
+
+    """
+    This does not work as the shear does not support Data nodes as parameters
+    sxy = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
+    sxz = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
+    syx = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
+    syz = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
+    szx = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
+    szy = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
+
+    # this is equivalent to perspective
+    images_sheared = fn.transforms.shear(
+        images,
+        shear=(sxy, sxz)
+    )
+
+    flip_coin = fn.random.coin_flip()
+    # dali does not yet support conditional execution, this is workaround
+    images = mux(flip_coin, images, images_sheared)
+    """
+
+    images = fn.transpose(images, perm=[2, 0, 1])
+
+    images = dalitorch.fn.torch_python_function(
+        images, 
+        function=transforms.Compose([
+            transforms.RandomPerspective(p=0.5),
+            ])
         )
 
-    def __getitem__(self, index: int):
-        """Get a sample from the dataset"""
-        image = Image.open(str(self.filenames[index]))
-        labelStr = self.filenames[index].parts[-3]
-        label = self.labels.index(labelStr)
-        return self.transform(image), label
+    images_jittered = fn.color_twist(
+        images, 
+        contrast=fn.random.uniform(range=[0.7, 1.3]), 
+        saturation=fn.random.uniform(range=[0.7, 1.3]),
+        hue=fn.random.uniform(range=[0.7, 1.3]),
+        brightness=fn.random.uniform(range=[0.5, 1.5])
+        )
+
+    flip_coin = fn.random.coin_flip()
+    # dali does not yet support conditional execution, this is workaround
+    images = mux(flip_coin, images, images_jittered)
+
+    images = fn.normalize(images, dtype=types.FLOAT)
+
+    labels = fn.squeeze(labels, axes=[0])
+    
+    return images.gpu(), labels.gpu()
+
+@pipeline_def
+def valid_pipeline():
+    inputs, labels = fn.readers.file(
+            file_list="data/valid_final.txt",
+            random_shuffle=True,
+            prefetch_queue_depth=2,
+            name="Reader",
+        )
+    
+    images = fn.decoders.image(inputs, device = "cpu")
+
+    images = fn.resize(images, resize_shorter=INPUT_SIZE)
+    images = fn.crop(images, crop=(INPUT_SIZE, INPUT_SIZE))
+
+    images = fn.transpose(images, perm=[2, 0, 1])
+
+    images = fn.normalize(images, dtype=types.FLOAT)
+
+    labels = fn.squeeze(labels, axes=[0])
+    
+    return images.gpu(), labels.gpu()
+
+class DaliTrain():
+    def __init__(self):
+        self.dataset = DALIGenericIterator(
+            # exec params set to false because we rely on torch for one of the transforms
+            train_pipeline(device_id=0, batch_size=20, num_threads=1, exec_async=False, exec_pipelined=False, seed=0),
+            ["data", "label"],
+            reader_name="Reader",
+            last_batch_policy=LastBatchPolicy.PARTIAL,
+        )
 
     def __len__(self):
-        """
-        Total number of samples in the dataset
-        """
-        return len(self.filenames)
+        with open("data/train_final.txt","r") as f:
+            return len(f.readlines())
+
+class DaliValid():
+    def __init__(self):
+        self.dataset = DALIGenericIterator(
+            valid_pipeline(device_id=0, batch_size=20, num_threads=1, exec_async=False, exec_pipelined=False, seed=0),
+            ["data", "label"],
+            reader_name="Reader",
+            last_batch_policy=LastBatchPolicy.PARTIAL,
+        )
+
+    def __len__(self):
+        with open("data/valid_final.txt","r") as f:
+            return len(f.readlines())
 
 
 if __name__ == "__main__":
-    """Initialise dataset"""
-    labels = ads3.get_labels()
-    dataset = CarDataset(labels=labels)
+    loader_train = DaliTrain() 
+    loader_valid = DaliValid()   
 
-    """Split train and test"""
-    train_len = int(0.7 * len(dataset))
-    valid_len = len(dataset) - train_len
-    train, valid = D.random_split(dataset, lengths=[train_len, valid_len])
+    print("train size: %d, valid size %d" % (len(loader_train), len(loader_valid)))
 
-    # When running image augmentation you should define seperate training and validation!
-
-    print("train size: %d, valid size %d" % (len(train), len(valid)))
-
-    loader_train = D.DataLoader(
-        train,
-        batch_size=80,
-        shuffle=True,
-        num_workers=1,
-        pin_memory=True,
-        prefetch_factor=2,
-    )
-    loader_valid = D.DataLoader(
-        valid,
-        batch_size=80,
-        shuffle=True,
-        num_workers=1,
-        pin_memory=True,
-        prefetch_factor=2,
-    )
+    log_file = "out/11py.csv"
+    trace_file = "out/trace11py.json"
 
     ads3.run_experiment(
-        loader_train, loader_valid
+        loader_train, loader_valid, log_file, trace_file
     )  # For profiling feel free to lower epoch count via epoch=X

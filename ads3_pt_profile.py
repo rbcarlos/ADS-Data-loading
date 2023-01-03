@@ -78,7 +78,9 @@ def train_model(
         running_loss = 0.0
         train_running_corrects = 0
 
-        for inputs, labels in loader_train:
+        for data in loader_train.dataset:
+            inputs, labels = data[0]["data"], data[0]["label"]
+            labels = labels.long()
             inputs, labels = Variable(inputs.cuda()), Variable(labels.cuda())
 
             optimizer.zero_grad()
@@ -104,7 +106,9 @@ def train_model(
         running_loss = 0.0
         valid_running_corrects = 0
 
-        for inputs, labels in loader_valid:
+        for data in loader_valid.dataset:
+            inputs, labels = data[0]["data"], data[0]["label"]
+            labels = labels.long()
             inputs, labels = Variable(inputs.cuda()), Variable(labels.cuda())
 
             optimizer.zero_grad()

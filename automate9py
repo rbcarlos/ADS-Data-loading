@@ -1,0 +1,8 @@
+#!/bin/bash
+
+for NUM_THREADS in 1 2 3 4
+do
+    python3 9.py -j $NUM_THREADS --logfile "out/9py_"$NUM_THREADS"threads.csv" 
+
+    python3 9.py -j $NUM_THREADS --tracefile "out/trace9py_"$NUM_THREADS"threads.json" -p
+done
