@@ -72,9 +72,10 @@ def train_model(
 
         # dali has a different structure of the data loader
         # it is a single item list with dictionary with data and label keys
-        for data in loader_train.dataset:
-            inputs, labels = data[0]["data"], data[0]["label"]
-            labels = labels.long()
+        #for data in loader_train.dataset:
+        #    inputs, labels = data[0]["data"], data[0]["label"]
+        #    labels = labels.long()
+        for inputs, labels in loader_train:
             inputs, labels = Variable(inputs.cuda()), Variable(labels.cuda())
 
             optimizer.zero_grad()
@@ -100,9 +101,10 @@ def train_model(
         running_loss = 0.0
         valid_running_corrects = 0
 
-        for data in loader_valid.dataset:
-            inputs, labels = data[0]["data"], data[0]["label"]
-            labels = labels.long()
+        #for data in loader_valid.dataset:
+        #    inputs, labels = data[0]["data"], data[0]["label"]
+        #    labels = labels.long()
+        for inputs, labels in loader_valid:
             inputs, labels = Variable(inputs.cuda()), Variable(labels.cuda())
 
             optimizer.zero_grad()
@@ -161,6 +163,7 @@ def run_experiment(loader_train, loader_valid, log_file, trace_file, epochs=10):
     my_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
     if torch.cuda.device_count() > 1:
+        print("detected more than 1 gpu")
         net = torch.nn.DataParallel(net)
     net.cuda()
 

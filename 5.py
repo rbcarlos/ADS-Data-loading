@@ -6,6 +6,8 @@ from pathlib import Path
 from PIL import Image
 from torch.utils import data as D
 
+import argparse
+
 torch.manual_seed(0)
 INPUT_SIZE = 224
 root = Path("data")
@@ -45,8 +47,32 @@ class CarDataset(D.Dataset):
         """
         return len(self.filenames)
 
+def init_argparse():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-j", "--threads", type=int,
+        default=1
+        )
+    parser.add_argument(
+        "--logfile", default="out/9py.csv"
+    )
+    parser.add_argument(
+        "--tracefile", default="out/trace9py.json"
+    )
+    parser.add_argument(
+        "-p", "--profile", action="store_true"
+    )
+    return parser
 
 if __name__ == "__main__":
+    parser = init_argparse()
+    args = parser.parse_args()
+
+    if args.profile:
+        import ads3_pt_profile as ads3
+    else:
+        import ads3 as ads3
+
     """Initialise dataset"""
     labels = ads3.get_labels()
     dataset = CarDataset(labels=labels)
@@ -60,7 +86,7 @@ if __name__ == "__main__":
 
     loader_train = D.DataLoader(
         train,
-        batch_size=20,
+        batch_size=80,
         shuffle=True,
         num_workers=1,
         pin_memory=True,
@@ -68,15 +94,15 @@ if __name__ == "__main__":
     )
     loader_valid = D.DataLoader(
         valid,
-        batch_size=20,
+        batch_size=80,
         shuffle=True,
         num_workers=1,
         pin_memory=True,
         prefetch_factor=2,
     )
 
-    log_file = "out/5py.csv"
-    trace_file = "out/trace5py.json"
+    log_file = args.logfile
+    trace_file = args.tracefile
 
     ads3.run_experiment(
         loader_train, loader_valid, log_file, trace_file
