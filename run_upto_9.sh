@@ -16,10 +16,10 @@ nvidia-smi
 free -m
 
 module load Anaconda3/2021.05
-module load CUDAcore/11.0.2
+#module load CUDAcore/11.0.2
 #conda env create -f environment.yaml
 source /home/roba/.bashrc
-conda activate ads
+conda activate nn_env
 
 python3 5.py --logfile "out/5py.csv"
 python3 5.py --tracefile "out/trace5py.json" -p
@@ -30,10 +30,10 @@ python3 7.py --tracefile "out/trace7py.json" -p
 python3 8.py --logfile "out/8py.csv"
 python3 8.py --tracefile "out/trace8py.json" -p
 python3 9.py -j 1 --logfile "out/9py_1worker.csv"
-python3 5.py -j 1 --tracefile "out/trace5py.json" -p
+python3 9.py -j 1 --tracefile "out/trace9py_1worker.json" -p
 python3 9.py -j 2 --logfile "out/9py_2worker.csv"
-python3 5.py -j 2 --tracefile "out/trace5py.json" -p
+python3 9.py -j 2 --tracefile "out/trace9py_2worker.json" -p
 python3 9.py -j 3 --logfile "out/9py_3worker.csv"
-python3 5.py -j 3 --tracefile "out/trace5py.json" -p
+python3 9.py -j 3 --tracefile "out/trace9py_3worker.json" -p
 python3 9.py -j 4 --logfile "out/9py_4worker.csv"
-python3 5.py -j 4 --tracefile "out/trace5py.json" -p
+python3 9.py -j 4 --tracefile "out/trace9py_4worker.json" -p

@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
     loader_train = D.DataLoader(
         train,
-        batch_size=20,
+        batch_size=80,
         shuffle=True,
         num_workers=args.threads,
         pin_memory=True,
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     )
     loader_valid = D.DataLoader(
         valid,
-        batch_size=20,
+        batch_size=80,
         shuffle=True,
         num_workers=args.threads,
         pin_memory=True,

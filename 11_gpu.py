@@ -34,35 +34,13 @@ def train_pipeline():
             name="Reader",
         )
     
-    images = fn.decoders.image(inputs, device = "cpu")
+    images = fn.decoders.image(inputs, device = "mixed")
 
     images = fn.resize(images, resize_shorter=INPUT_SIZE)
     images = fn.crop(images, crop=(INPUT_SIZE, INPUT_SIZE))
 
     flip_coin = fn.random.coin_flip()
-    images = fn.flip(images, horizontal = flip_coin, device = "cpu")
-
-    """
-    This does not work as the shear does not support Data nodes as parameters
-    sxy = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
-    sxz = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
-    syx = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
-    syz = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
-    szx = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
-    szy = fn.random.uniform(range=[0.5, 1.5], dtype=types.FLOAT)
-
-    # this is equivalent to perspective
-    images_sheared = fn.transforms.shear(
-        images,
-        shear=(sxy, sxz)
-    )
-
-    flip_coin = fn.random.coin_flip()
-    # dali does not yet support conditional execution, this is workaround
-    images = mux(flip_coin, images, images_sheared)
-    """
-
-    images = fn.transpose(images, perm=[2, 0, 1])
+    images = fn.flip(images, horizontal = flip_coin)
 
     images = dalitorch.fn.torch_python_function(
         images, 
@@ -83,6 +61,8 @@ def train_pipeline():
     # dali does not yet support conditional execution, this is workaround
     images = mux(flip_coin, images, images_jittered)
 
+    images = fn.transpose(images, perm=[2, 0, 1])
+
     images = fn.normalize(images, dtype=types.FLOAT)
 
     labels = fn.squeeze(labels, axes=[0])
@@ -98,7 +78,7 @@ def valid_pipeline():
             name="Reader",
         )
     
-    images = fn.decoders.image(inputs, device = "cpu")
+    images = fn.decoders.image(inputs, device = "mixed")
 
     images = fn.resize(images, resize_shorter=INPUT_SIZE)
     images = fn.crop(images, crop=(INPUT_SIZE, INPUT_SIZE))
